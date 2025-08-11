@@ -121,35 +121,75 @@ class POLY_GenderJudgment:
         检测文本中的性别
         
         规则:
-        - 包含完整单词"male"（不区分大小写）→ male
-        - 包含完整单词"female"（不区分大小写）→ female
+        - 包含"male"相关词汇（不区分大小写）→ male
+        - 包含"female"相关词汇（不区分大小写）→ female
         - 都不包含或都包含 → 其他
         
-        注意: "female"包含"male"但它是一个完整的单词，所以不算包含"male"
+        支持多种格式:
+        - 完整单词: male, female
+        - 权重格式: (1male:1.25), (1female:1.25)
+        - 描述词: handsome man, beautiful lady, boy, girl, woman
         """
         if not text:
             return "其他"
         
         text_lower = text.lower()
         
-        # 使用单词边界\b来匹配完整单词
-        # \b确保匹配的是完整的单词，而不是单词的一部分
-        has_male = bool(re.search(r'\bmale\b', text_lower))
-        has_female = bool(re.search(r'\bfemale\b', text_lower))
+        # 男性相关的正则表达式模式
+        male_patterns = [
+            r'\bmale\b',                    # 完整单词 male
+            r'\d+male\b',                   # 数字+male，如 1male
+            r'\(\s*\d*male\s*:',           # 权重格式，如 (1male: 或 (male:
+            r'\bman\b',                     # 完整单词 man
+            r'\d+man\b',                    # 数字+man，如 1man
+            r'\(\s*\d*man\s*:',            # 权重格式，如 (1man: 或 (man:
+            r'\bboy\b',                     # 完整单词 boy
+            r'\d+boy\b',                    # 数字+boy，如 1boy
+            r'\(\s*\d*boy\s*:',            # 权重格式，如 (1boy: 或 (boy:
+            r'handsome\s+man',              # handsome man
+            r'handsome\s+male',             # handsome male
+            r'handsome\s+boy',              # handsome boy
+        ]
+        
+        # 女性相关的正则表达式模式
+        female_patterns = [
+            r'\bfemale\b',                  # 完整单词 female
+            r'\d+female\b',                 # 数字+female，如 1female
+            r'\(\s*\d*female\s*:',         # 权重格式，如 (1female: 或 (female:
+            r'\bwoman\b',                   # 完整单词 woman
+            r'\d+woman\b',                  # 数字+woman，如 1woman
+            r'\(\s*\d*woman\s*:',          # 权重格式，如 (1woman: 或 (woman:
+            r'\bgirl\b',                    # 完整单词 girl
+            r'\d+girl\b',                   # 数字+girl，如 1girl
+            r'\(\s*\d*girl\s*:',           # 权重格式，如 (1girl: 或 (girl:
+            r'\blady\b',                    # 完整单词 lady
+            r'\d+lady\b',                   # 数字+lady，如 1lady
+            r'\(\s*\d*lady\s*:',           # 权重格式，如 (1lady: 或 (lady:
+            r'beautiful\s+woman',           # beautiful woman
+            r'beautiful\s+female',          # beautiful female
+            r'beautiful\s+girl',            # beautiful girl
+            r'beautiful\s+lady',            # beautiful lady
+        ]
+        
+        # 检查是否匹配男性模式
+        has_male = any(re.search(pattern, text_lower) for pattern in male_patterns)
+        
+        # 检查是否匹配女性模式
+        has_female = any(re.search(pattern, text_lower) for pattern in female_patterns)
         
         print(f"[POLY_GenderJudgment] 文本分析: '{text}'")
-        print(f"[POLY_GenderJudgment] 包含'male': {has_male}")
-        print(f"[POLY_GenderJudgment] 包含'female': {has_female}")
+        print(f"[POLY_GenderJudgment] 包含男性特征: {has_male}")
+        print(f"[POLY_GenderJudgment] 包含女性特征: {has_female}")
         
         # 判断逻辑
         if has_male and has_female:
             # 都包含 → 其他
             return "其他"
         elif has_male:
-            # 只包含male → male
+            # 只包含male相关 → male
             return "male"
         elif has_female:
-            # 只包含female → female
+            # 只包含female相关 → female
             return "female"
         else:
             # 都不包含 → 其他
