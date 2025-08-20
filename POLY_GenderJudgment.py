@@ -134,6 +134,59 @@ class POLY_GenderJudgment:
             return "其他"
         
         text_lower = text.lower()
+
+        # 优先处理显式的计数/人数相关标记与特殊标记
+        # 需求：多个同性（如 2boys/3girls/multiple_boys/multiple_girls/6+boys 等）按该性别判断；
+        # 若男女都出现，尊重最先出现的；no_humans 视为其他。
+
+        # no_humans 情况 → 其他
+        if re.search(r'(?<!\w)no_humans(?!\w)', text_lower):
+            print("[POLY_GenderJudgment] 检测到 no_humans 标记 → 其他")
+            return "其他"
+
+        # 定义辅助函数：寻找给定模式列表中最早出现的位置
+        def _first_match_index(s: str, patterns: list[str]):
+            first_idx = None
+            for pat in patterns:
+                for m in re.finditer(pat, s):
+                    idx = m.start()
+                    if first_idx is None or idx < first_idx:
+                        first_idx = idx
+            return first_idx
+
+        # 计数/复数相关的显式性别模式（尽量严格以避免误匹配）
+        male_count_patterns = [
+            r'(?<!\w)1boy(?!\w)',
+            r'(?<!\w)multiple_boys(?!\w)',
+            r'(?<!\w)[1-9]\d*\+boys(?!\w)',   # 如 6+boys
+            r'(?<!\w)\d+\s*boys(?!\w)',       # 如 2boys/3 boys
+        ]
+        female_count_patterns = [
+            r'(?<!\w)1girl(?!\w)',
+            r'(?<!\w)multiple_girls(?!\w)',
+            r'(?<!\w)[1-9]\d*\+girls(?!\w)',  # 预留，如 6+girls（虽未举例）
+            r'(?<!\w)\d+\s*girls(?!\w)',      # 如 2girls/3 girls
+        ]
+
+        male_first = _first_match_index(text_lower, male_count_patterns)
+        female_first = _first_match_index(text_lower, female_count_patterns)
+
+        print(f"[POLY_GenderJudgment] 显式人数标记定位 -> male_first: {male_first}, female_first: {female_first}")
+
+        # 若在人数/复数标记中就能判定，直接根据先后顺序/存在性返回
+        if male_first is not None and female_first is not None:
+            # 都出现，尊重最先出现者
+            if male_first < female_first:
+                return "male"
+            elif female_first < male_first:
+                return "female"
+            else:
+                # 位置相同极少见，视为冲突 → 其他
+                return "其他"
+        elif male_first is not None:
+            return "male"
+        elif female_first is not None:
+            return "female"
         
         # 男性相关的正则表达式模式
         male_patterns = [
@@ -160,10 +213,10 @@ class POLY_GenderJudgment:
             r'\d+woman\b',                  # 数字+woman，如 1woman
             r'\(\s*\d*woman\s*:',          # 权重格式，如 (1woman: 或 (woman:
             r'\bgirl\b',                    # 完整单词 girl
-            r'\d+girl\b',                   # 数字+girl，如 1girl
+            r'\d+girl\b',                    # 数字+girl，如 1girl
             r'\(\s*\d*girl\s*:',           # 权重格式，如 (1girl: 或 (girl:
             r'\blady\b',                    # 完整单词 lady
-            r'\d+lady\b',                   # 数字+lady，如 1lady
+            r'\d+lady\b',                    # 数字+lady，如 1lady
             r'\(\s*\d*lady\s*:',           # 权重格式，如 (1lady: 或 (lady:
             r'beautiful\s+woman',           # beautiful woman
             r'beautiful\s+female',          # beautiful female
