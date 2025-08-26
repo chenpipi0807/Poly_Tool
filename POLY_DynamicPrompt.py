@@ -35,7 +35,7 @@ class POLY_DynamicPrompt:
                 "seed": ("INT", {
                     "default": 0,
                     "min": 0,
-                    "max": 999999999
+                    "max": 9999999999
                 })
             }
         }
